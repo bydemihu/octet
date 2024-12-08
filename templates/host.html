@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Host</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400..900&family=Zen+Maru+Gothic:wght@300;400;500;700;900&display=swap"
+        rel="stylesheet">
+
+
+    <style>
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            font-family: "Maven Pro", sans-serif;
+            background-color: #2a2829;
+            color: #f0ebe5;
+            display: flex;
+            justify-content: center;
+            align-items: top;
+            text-align: center;
+        }
+
+        h1 {
+            width: 100%;
+            margin-top: 200px;
+            font-size: 30px;
+            font-weight: 400;
+        }
+
+        .container {
+            width: 300px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: 2a2829;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .collective-score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 10px 0;
+        }
+
+        li {
+            padding: 8px;
+            margin-bottom: 5px;
+            background-color: #f0ebe5;
+            color:#2a2829;
+            border-radius: 15px;
+            text-align: center;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .username {
+            flex-grow: 1;
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .score {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .answer-container {
+            margin-top: 20px;
+        }
+
+        .answer-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .answer-list {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 15px;
+            border: 1px solid #97b4de;
+        }
+
+        button {
+            background-color: #97b4de;
+            color: #2a2829;
+            cursor: pointer;
+        }
+
+        .results {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            var socket = io();
+
+            socket.on('connect', function () {
+                socket.emit('join', {});
+            });
+
+            $('#startGame').click(function () {
+                socket.emit('start_game');
+                $('#startGame').hide(); // Hide the "Start Game" button after clicking
+            });
+
+            $('#nextQuestion').click(function () {
+                socket.emit('next_question');
+                $('#nextQuestion').hide(); // Hide the "Next Question" button until results are shown again
+                $('#results').empty(); // Clear results
+                $('.answer-list').empty(); // Clear answer choices
+            });
+
+            $('#finishGame').click(function () {
+                // Placeholder for future functionality
+                alert('Game Finished!');
+            });
+
+            socket.on('game_question', function (data) {
+                $('#question').text(data.question);
+                $('#answers').html('');
+                $('#answer-list-0').empty(); // Clear lists for fresh question
+                $('#answer-list-1').empty();
+                $('#results').empty(); // Clear results
+                data.options.forEach(function (option, index) {
+                    $('#answers').append(
+                        `<div class="answer-container">
+                            <div class="answer-title">${option}</div>
+                            <ul id="answer-list-${index}" class="answer-list"></ul>
+                        </div>`
+                    );
+                });
+            });
+
+            socket.on('update_answers', function (data) {
+                var choice = data.choice;
+                var user = data.user;
+
+                // Append the user to the chosen option's list
+                $(`#answer-list-${choice}`).append(
+                    `<li>
+                        <span class="username">${user}</span>
+                    </li>`
+                );
+            });
+
+            socket.on('show_results', function (data) {
+                // Update collective score
+                $('#collectiveScore').text(data.collective_score);
+
+                // Update results at the bottom
+                $('#results').text(data.majority_decision);
+
+                // Update self scores next to player names in userList
+                $('#userList').html('');
+                for (const [user, score] of Object.entries(data.self_scores)) {
+                    $('#userList').append(
+                        `<li>
+                            <span class="username">${user}</span>
+                            <span class="score">${score}</span>
+                        </li>`
+                    );
+                }
+
+                // Show the "Next Question" or "Finish Game" button
+                if (data.is_last_question) {
+                    $('#nextQuestion').hide();
+                    $('#finishGame').show();
+                } else {
+                    $('#nextQuestion').show();
+                    $('#finishGame').hide();
+                }
+            });
+
+            socket.on('update_users', function (data) {
+                $('#userList').html('');
+                data.users.forEach(function (user) {
+                    const score = data.self_scores[user] || 0;
+                    $('#userList').append(
+                        `<li>
+                            <span class="username">${user}</span>
+                            <span class="score">${score}</span>
+                        </li>`
+                    );
+                });
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="collective-score" id="collectiveScore">0</div>
+        <h1>OCTET HOST</h1>
+        <ul id="userList">
+            <!-- Users and scores will be listed here -->
+        </ul>
+        <div id="question" style="margin-top: 20px;"></div>
+        <div id="answers"></div>
+        <div id="results" class="results"></div>
+        <button id="startGame">Start Game</button>
+        <button id="nextQuestion" style="display: none;">Next Question</button>
+        <button id="finishGame" style="display: none;">Finish Game</button>
+    </div>
+</body>
+
+</html>
