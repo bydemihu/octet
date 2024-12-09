@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Lobby</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400..900&family=Zen+Maru+Gothic:wght@300;400;500;700;900&display=swap"
+        rel="stylesheet">
+
+
+    <style>
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            font-family: "Maven Pro", sans-serif;
+            background-color: #2a2829;
+            color: #f0ebe5;
+            display: flex;
+            justify-content: center;
+            align-items: top;
+            text-align: center;
+        }
+
+        .container {
+            width: 300px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #2a2829;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .self-score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .collective-score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .self-word {
+            position: absolute;
+            top: 50px;
+            left: 20px;
+            font-size: 16px;
+            font-weight: normal;
+        }
+
+        .collective-word {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            font-size: 16px;
+            font-weight: normal;
+        }
+
+        .results {
+            display: none;
+            margin-top: 200px;
+            font-size: 20px;
+            font-weight: 400;
+        }
+
+        .answer {
+            width: 100%;
+            height: 50px;
+            margin-top: 10px;
+            background-color: #97b4de;
+            color: #2a2829;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .answer.disabled {
+            cursor: not-allowed;
+            background-color: #3d3c3e;
+        }
+
+        h1 {
+            width: 86%;
+            margin-top: 20px;
+            margin-bottom: 160px;
+            padding-left: 30px;
+            padding-right: 300px;
+            font-size: 14px;
+            font-weight: 400;
+            text-align: left;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 20px;
+            border: 1px solid #97b4de;
+        }
+
+        button {
+            background-color: #97b4de;
+            color: #2a2829;
+            cursor: pointer;
+
+        }
+    </style>
+
+    <!-- Include jQuery and Socket.IO client library -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            var countdown = 10;
+            var delay = 1000; // 1 second
+            var socket = io();
+            var username = "{{ username }}";  // Get username from the server
+
+            setTimeout(function () {
+                setInterval(function () {
+                    if (countdown > 0){
+                        countdown--;}
+                        $('#countdown').text('TIME REMAINING: ' + countdown);
+                        $('#countbar2').css('width', (100 - countdown * 10) + '%');
+                        
+                }, delay);
+            }, delay);
+
+            //$('#question').text("In the far future, selfish consumption has led to ecological collapse and the decline of human civilization. Humans are placed in Octets, groups of 8 people who are sensorially linked and make decisions as a collective: for the good of the group, and eventually the planet.").show();
+                $('#answers').html('');
+                $('#results').hide();
+                data = ["Join the riot for resources.", "Stay back for safety."]
+                data.forEach(function (option, index) {
+                    $('#answers').append(
+                        `<button class="answer" id="option-${index}" onclick="submitAnswer(${index})">${option}</button>`
+                    );
+                });
+                //$('#answers').show();
+            
+                
+            socket.on('connect', function () {
+                socket.emit('join', {});
+            });
+
+            socket.on('game_question', function (data) {
+                $('#question').text(data.question).show();
+                $('#answers').html('');
+                $('#results').hide();
+                data.options.forEach(function (option, index) {
+                    $('#answers').append(
+                        `<button class="answer" id="option-${index}" onclick="submitAnswer(${index})">${option}</button>`
+                    );
+                });
+                $('#answers').show();
+            });
+
+            socket.on('show_results', function (data) {
+                // Get player's self score based on username
+                const selfScore = data.self_scores[username] || 0;
+                const collectiveScore = data.collective_score;
+
+                // Update scores dynamically
+                $('#selfScore').text(selfScore);
+                $('#collectiveScore').text(collectiveScore);
+
+                // Show majority decision
+                $('#results').text(data.majority_decision).show();
+                $('#question, #answers').hide();
+            });
+
+            
+
+            window.submitAnswer = function (choice) {
+                socket.emit('submit_answer', { choice: choice });
+                $('.answer').each(function (index, element) {
+                    if (index === choice) {
+                        $(element).removeClass('disabled');
+                    } else {
+                        $(element).addClass('disabled');
+                    }
+                    $(element).css('cursor', 'not-allowed');
+                });
+            };
+        });
+    </script>
+</head>
+
+
+<body>
+    <div class="container">
+        <div class="self-score" id="selfScore" >2</div>
+        <div class="collective-score" id="collectiveScore" >4</div>
+        <div class="self-word">SELF</div>
+        <div class="collective-word">COLLECTIVE</div>
+
+        <div style = "color:#f0ebe5; font-size: 48px; padding: 20px; margin-top: 160px"> WELCOME TO OCTET. </div>
+        <h1 id="question" style="display: none;"></h1>
+        <div id="answers" style="display: none;"></div>
+        <div id="results" class="results"></div>
+
+        <form action="/" method="post">
+            <input type="text" name="username" placeholder="Enter your name" required>
+            <button type="submit">Join</button>
+        </form>
+        
+        <div id="countdown" style = "display:none; margin-top: 100px; margin-bottom: 16px">TIME REMAINING: 10</div>
+
+        <div id = "countbar" style = "display:none; position: relative; height: 10px; width: 100%; background-color: #3d3c3e; border-radius: 15px;">
+        <div id = "countbar2" style = "display:none; position: absolute; height: 10px; top:0px; left: 0px; width: 0%; background-color: #97b4de; border-radius: 15px;"></div></div>
+    </div>
+
+</body>
+
+</html>
